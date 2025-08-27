@@ -1,12 +1,29 @@
+'use client';
 import Image from "next/image";
 import { supabase } from '@/utils/supabase/client';
 
 export default function Home() {
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'http://localhost:3000',
+      },
+    });
+    if (error) console.error('Login error:', error.message);
+  };
+
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <h1 className="text-4xl">Welcome to Next.js!</h1>
-        <p>Get started by editing {`app/page.tsx`}</p>
+        <h1 className="text-4xl">Welcome to StemBot!</h1>
+      <button
+        onClick={handleGoogleLogin}
+        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+      >
+        Sign in with Google
+      </button>
+      
         <Image
           className="dark:invert"
           src="/next.svg"
