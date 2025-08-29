@@ -1,4 +1,5 @@
-import Image from "next/image";
+'use client';
+import { supabase } from '@/utils/supabase/client';
 
 export default function Home() {
   return (
