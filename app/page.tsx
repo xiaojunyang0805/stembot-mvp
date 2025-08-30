@@ -7,17 +7,17 @@ export default function Home() {
       const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'http://localhost:3000',
+          redirectTo: 'http://localhost:3000/dashboard', 
           scopes: 'email profile',
         },
       });
       if (error) {
         console.error('OAuth Error:', error.message, 'Status:', error.status);
       } else {
-        console.log('OAuth Success:', data);
+        console.log('OAuth Redirect Initiated:', data);
       }
     } catch (err) {
-      console.error('Unexpected Error:', err instanceof Error ? err.message : err);
+      console.error('Unexpected Client Error:', err instanceof Error ? err.message : err);
     }
   };
 
