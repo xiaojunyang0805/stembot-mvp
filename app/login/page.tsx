@@ -1,20 +1,15 @@
 'use client';
-
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser-client';  // Adjust path if needed
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export default function LoginPage() {
+export default function Login() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const supabase = createSupabaseBrowserClient();
+  const [error, setError] = useState<string | null>(null);
 
-  // Check if user is already logged in
   useEffect(() => {
     const checkSession = async () => {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         router.push('/dashboard');
@@ -24,33 +19,28 @@ export default function LoginPage() {
   }, [router]);
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     if (error) {
-      console.error('Google login error:', error.message);
-      setLoading(false);
+      console.error('Login error:', error.message);
+      setError('Login failed: ' + error.message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-6">Login to StemBot</h1>
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
-        >
-          {loading ? 'Logging in...' : 'Sign in with Google'}
-        </button>
-      </div>
+    <div className="p-4 flex flex-col items-center">
+      <h1 className="text-2xl mb-4">Login to StemBot</h1>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      <button
+        onClick={handleGoogleLogin}
+        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      >
+        Login with Google
+      </button>
     </div>
   );
 }
