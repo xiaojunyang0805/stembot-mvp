@@ -12,9 +12,10 @@ interface Bot {
 }
 
 export default function DashboardPage() {
-  const bots: Bot[] = [
-    { id: 1, name: 'Bot 1', created_at: '2025-09-01' },
-    { id: 2, name: 'Bot 2', created_at: '2025-09-02' },
+  const bots: { id: number; name: string; created_at: string }[] = [
+    { id: 1, name: "Bot 1", created_at: "2025-09-01" },
+    { id: 2, name: "Bot 2", created_at: "2025-09-02" },
+    { id: 3, name: "Bot 3", created_at: "2025-09-03" },
   ];
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
