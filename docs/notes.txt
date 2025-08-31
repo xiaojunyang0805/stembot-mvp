@@ -4,3 +4,7 @@
 //    { id: 2, name: "Bot 2", created_at: "2025-09-02" },
 //    { id: 3, name: "Bot 3", created_at: "2025-09-03" },
 //  ];
+
+WP2 Task 1 Day 2: Tested empty bot list edge case. 
+Added conditional rendering with "No bots yet" message using Tailwind. 
+Restored mock data. No issues.
