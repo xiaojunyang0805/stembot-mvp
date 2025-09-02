@@ -100,3 +100,5 @@ Issue: Build failed due to @typescript-eslint/no-explicit-any in server-client.t
 Fix: App/lib/supabase/server-client.ts: Simple interface that matches Next.js requirements. interface CookieOptions {}, export const createSupabaseServerClient = async () => {const cookieStore = await cookies...};
 Outcome: Successful Vercel deployment, main page loads correctly.
 Notes: Since createSupabaseServerClient() is now an async function (returns a Promise), add await for route.ts, middleware.ts. 
+
+## Remain problem: https://stembot-mvp.vercel.app/ redirect to dashboard directly. Logout cannot work. While http://localhost:3000/login works well, the logout in dashboard does not work. The main page http://localhost:3000 works well, including funtional logout. 
