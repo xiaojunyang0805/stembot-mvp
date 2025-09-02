@@ -6,7 +6,7 @@ export async function middleware(req: NextRequest) {
     request: { headers: req.headers },
   });
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient(); // Add await here
   const { data: { session } } = await supabase.auth.getSession();
 
   console.log('Middleware: Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);

@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/dashboard';
 
   if (code) {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient(); // Add await here
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
     console.log('Callback: Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);
     if (!error && session) {
