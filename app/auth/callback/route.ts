@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server-client';  // Adjust path if needed
+import { createSupabaseServerClient } from '@/lib/supabase/server-client';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -8,12 +8,16 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = createSupabaseServerClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+    const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
+    console.log('Callback: Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);
+    if (!error && session) {
+      if (session.user.email_confirmed_at) {
+        return NextResponse.redirect(`${origin}${next}`);
+      } else {
+        return NextResponse.redirect(`${origin}/verify`);
+      }
     }
   }
 
-  // Redirect to error page if failed
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);
 }

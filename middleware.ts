@@ -7,12 +7,20 @@ export async function middleware(req: NextRequest) {
   });
 
   const supabase = createSupabaseServerClient();
-
   const { data: { session } } = await supabase.auth.getSession();
+
+  console.log('Middleware: Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);
 
   if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = '/login';
+    redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (session && !session.user.email_confirmed_at && req.nextUrl.pathname.startsWith('/dashboard')) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = '/verify';
     redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }

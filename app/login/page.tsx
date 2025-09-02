@@ -1,5 +1,5 @@
 'use client';
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser-client';  // Adjust path if needed
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -11,8 +11,11 @@ export default function Login() {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      console.log('Login: Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);
+      if (session && session.user.email_confirmed_at) {
         router.push('/dashboard');
+      } else if (session && !session.user.email_confirmed_at) {
+        router.push('/verify');
       }
     };
     checkSession();
@@ -22,7 +25,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: 'http://localhost:3000/auth/callback',
       },
     });
     if (error) {

@@ -7,11 +7,11 @@ export const createSupabaseServerClient = () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async get(name) {
+        async get(name: string) {
           const cookieStore = await cookies();
           return cookieStore.get(name)?.value;
         },
-        async set(name, value, options) {
+        async set(name: string, value: string, options: any) {
           try {
             const cookieStore = await cookies();
             cookieStore.set(name, value, options);
@@ -19,7 +19,7 @@ export const createSupabaseServerClient = () => {
             console.error('Error setting cookie:', error);
           }
         },
-        async remove(name) {
+        async remove(name: string) {
           try {
             const cookieStore = await cookies();
             cookieStore.delete(name);
