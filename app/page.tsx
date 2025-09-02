@@ -18,7 +18,7 @@ export default function Home() {
       }
     };
     checkSession();
-  }, [router]);
+  }, [router, supabase]); // Added supabase
 
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({

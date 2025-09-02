@@ -9,18 +9,18 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkSession = async () => {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Delay for session clear
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Login: Session exists:', !!session);
-      if (session && session.user.email_confirmed_at) {
-        router.push('/dashboard');
-      } else if (session && !session.user.email_confirmed_at) {
-        router.push('/verify');
-      }
-    };
-    checkSession();
-  }, [router]);
+  const checkSession = async () => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('Login: Session exists:', !!session);
+    if (session && session.user.email_confirmed_at) {
+      router.push('/dashboard');
+    } else if (session && !session.user.email_confirmed_at) {
+      router.push('/verify');
+    }
+  };
+  checkSession();
+}, [router, supabase]); // Added supabase
 
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({

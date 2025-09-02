@@ -16,7 +16,7 @@ export default function Verify() {
       }
     };
     checkVerification();
-  }, [router]);
+  }, [router, supabase]); // Added supabase
 
   return (
     <div className="p-4 flex flex-col items-center">

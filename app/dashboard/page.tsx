@@ -21,24 +21,20 @@ export default function Dashboard() {
       }
     };
     checkSession();
-  }, [router]);
+  }, [router, supabase]); // Added supabase to dependencies
 
   const handleLogout = async () => {
-  console.log('Logout: Attempting signOut');
-  try {
+    console.log('Logout: Attempting signOut');
     const { error } = await supabase.auth.signOut();
     if (!error) {
       console.log('Logout: Success, redirecting to /login');
       await supabase.auth.refreshSession();
-      router.replace('/login'); // Use replace instead of push
+      router.replace('/login');
       router.refresh();
     } else {
       console.error('Logout error:', error.message);
     }
-  } catch (err) {
-    console.error('Logout catch error:', err);
-  }
-};
+  };
 
   return (
     <div className="p-4">
