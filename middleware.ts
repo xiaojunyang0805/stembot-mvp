@@ -12,13 +12,8 @@ export async function middleware(req: NextRequest) {
 
   console.log('Middleware: Path:', req.nextUrl.pathname, 'Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);
 
-  // Don't redirect from root path - let the page handle it
-  if (req.nextUrl.pathname === '/') {
-    return NextResponse.next();
-  }
-
   // If user is not authenticated and trying to access protected routes
-  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
+  if (!session && (req.nextUrl.pathname.startsWith('/dashboard') || req.nextUrl.pathname === '/')) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = '/login';
     redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
@@ -26,14 +21,14 @@ export async function middleware(req: NextRequest) {
   }
 
   // If user is authenticated but not verified and trying to access protected routes
-  if (session && !session.user.email_confirmed_at && req.nextUrl.pathname.startsWith('/dashboard')) {
+  if (session && !session.user.email_confirmed_at && (req.nextUrl.pathname.startsWith('/dashboard') || req.nextUrl.pathname === '/')) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = '/verify';
     redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If user is authenticated and verified but trying to access auth pages (except root)
+  // If user is authenticated and verified but trying to access auth pages
   if (session && session.user.email_confirmed_at && 
       (req.nextUrl.pathname.startsWith('/login') || 
        req.nextUrl.pathname.startsWith('/signup') || 
@@ -41,6 +36,11 @@ export async function middleware(req: NextRequest) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = '/dashboard';
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Allow root path to proceed without redirects (will show login page)
+  if (req.nextUrl.pathname === '/') {
+    return NextResponse.next();
   }
 
   return NextResponse.next();
