@@ -1,34 +1,47 @@
 'use client';
-import { supabase } from '@/utils/supabase/client';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser-client';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
-  const handleGoogleLogin = async () => {
-    try {
-      const { error, data } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'http://localhost:3000/dashboard', 
-          scopes: 'email profile',
-        },
-      });
-      if (error) {
-        console.error('OAuth Error:', error.message, 'Status:', error.status);
-      } else {
-        console.log('OAuth Redirect Initiated:', data);
+  const router = useRouter();
+  const supabase = createSupabaseBrowserClient();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user.email_confirmed_at) {
+        router.push('/dashboard');
+      } else if (session && !session.user.email_confirmed_at) {
+        router.push('/verify');
       }
-    } catch (err) {
-      console.error('Unexpected Client Error:', err instanceof Error ? err.message : err);
+    };
+    checkSession();
+  }, [router]);
+
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'http://localhost:3000/auth/callback',
+      },
+    });
+    if (error) {
+      console.error('Login error:', error.message);
+      setError('Login failed: ' + error.message);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2">
-      <h1 className="text-5xl font-bold">Welcome to StemBot!</h1>
+    <div className="p-4 flex flex-col items-center">
+      <h1 className="text-2xl mb-4">Welcome to StemBot</h1>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
       <button
         onClick={handleGoogleLogin}
-        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
       >
-        Sign in with Google
+        Login with Google
       </button>
     </div>
   );
