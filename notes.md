@@ -104,3 +104,8 @@ Notes: Since createSupabaseServerClient() is now an async function (returns a Pr
 Issue:Logout problem: https://stembot-mvp.vercel.app/ redirect to dashboard directly. Logout cannot work. While http://localhost:3000/login works well, the logout in dashboard does not work. The main page http://localhost:3000 works well, including funtional logout. 
 Fix: The problem is in app/login/page.ts: checkSession function. It has a setTimeout that delays the session check, but this can cause race conditions and unexpected behavior. setTimeout is removed. 
 Outcome: New UI for login and the logout is successful now.
+
+Issue: http://localhost:3000 (root page) direct to dashboard directly. Logout doesn't work. 
+Problem: Middleware.ts: Using getSession() which reads from storage (cookies) without verification
+Fix:  Middleware.ts: Using getUser() which verifies authenticity with Supabase Auth server
+Outcome: Secure authentication flow without the security warning
