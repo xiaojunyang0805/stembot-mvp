@@ -101,4 +101,6 @@ Fix: App/lib/supabase/server-client.ts: Simple interface that matches Next.js re
 Outcome: Successful Vercel deployment, main page loads correctly.
 Notes: Since createSupabaseServerClient() is now an async function (returns a Promise), add await for route.ts, middleware.ts. 
 
-## Remain problem: https://stembot-mvp.vercel.app/ redirect to dashboard directly. Logout cannot work. While http://localhost:3000/login works well, the logout in dashboard does not work. The main page http://localhost:3000 works well, including funtional logout. 
+Issue:Logout problem: https://stembot-mvp.vercel.app/ redirect to dashboard directly. Logout cannot work. While http://localhost:3000/login works well, the logout in dashboard does not work. The main page http://localhost:3000 works well, including funtional logout. 
+Fix: The problem is in app/login/page.ts: checkSession function. It has a setTimeout that delays the session check, but this can cause race conditions and unexpected behavior. setTimeout is removed. 
+Outcome: New UI for login and the logout is successful now.
