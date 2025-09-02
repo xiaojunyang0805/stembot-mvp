@@ -10,8 +10,9 @@ export default function Login() {
 
   useEffect(() => {
     const checkSession = async () => {
+      await new Promise(resolve => setTimeout(resolve, 500)); // Delay for session clear
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Login: Session exists:', !!session, 'Verified:', !!session?.user.email_confirmed_at);
+      console.log('Login: Session exists:', !!session);
       if (session && session.user.email_confirmed_at) {
         router.push('/dashboard');
       } else if (session && !session.user.email_confirmed_at) {
@@ -24,14 +25,9 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: 'http://localhost:3000/auth/callback',
-      },
+      options: { redirectTo: 'https://stembot-mvp.vercel.app/auth/callback' },
     });
-    if (error) {
-      console.error('Login error:', error.message);
-      setError('Login failed: ' + error.message);
-    }
+    if (error) setError('Login failed: ' + error.message);
   };
 
   return (

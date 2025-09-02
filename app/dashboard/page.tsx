@@ -24,17 +24,21 @@ export default function Dashboard() {
   }, [router]);
 
   const handleLogout = async () => {
-    console.log('Logout: Attempting signOut');
+  console.log('Logout: Attempting signOut');
+  try {
     const { error } = await supabase.auth.signOut();
     if (!error) {
       console.log('Logout: Success, redirecting to /login');
       await supabase.auth.refreshSession();
-      router.push('/login');
+      router.replace('/login'); // Use replace instead of push
       router.refresh();
     } else {
       console.error('Logout error:', error.message);
     }
-  };
+  } catch (err) {
+    console.error('Logout catch error:', err);
+  }
+};
 
   return (
     <div className="p-4">
