@@ -120,3 +120,7 @@ Fix: Replaced any with proper TypeScript types: User type from @supabase/supabas
 Outcome: Compile successfully on Vercel (no any types)
 
 *WP2 outcome reminder: Used placeholder in getPDFInfo to avoid pdfjs-dist setup issues; need to implement full parsing in WP3. 
+
+Improvment: 
+1. In dashboard/page.tsx: Replace mock data with real fetch. 
+2. Display bots in cards/list: Show name, created_at, and add "View Bot" button linking to /bot/[id] viadynamic route by creating placeholder app/bot/[id]/page.tsx. 
