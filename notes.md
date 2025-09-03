@@ -118,3 +118,5 @@ Outcome: PDF files now upload successfully to Supabase Storage.The file can be v
 Issue: comiple failure occurs for vercel deployment. 
 Fix: Replaced any with proper TypeScript types: User type from @supabase/supabase-js instead of any; error: unknown instead of error: any in catch blocks; Proper error type checking with instanceof Error.
 Outcome: Compile successfully on Vercel (no any types)
+
+*WP2 outcome reminder: Used placeholder in getPDFInfo to avoid pdfjs-dist setup issues; need to implement full parsing in WP3. 

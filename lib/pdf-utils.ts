@@ -2,7 +2,7 @@
 export interface PDFInfo {
   pageCount: number;
   firstPageText: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export const validatePDF = async (file: File): Promise<{ isValid: boolean; error?: string }> => {
@@ -39,12 +39,10 @@ export const validatePDF = async (file: File): Promise<{ isValid: boolean; error
   }
 };
 
-// Renamed from parsePDF to getPDFInfo to avoid confusion
+// Simple placeholder for PDF info
 export const getPDFInfo = async (file: File): Promise<PDFInfo> => {
-  // For WP2_Task2, we'll use basic info and implement proper parsing later
-  // This satisfies the requirement to "log basic info" without external lib issues
   return {
-    pageCount: 1, // Placeholder - we'll get actual page count in WP3
+    pageCount: 1,
     firstPageText: 'PDF content will be processed for AI embeddings in WP3',
     metadata: {
       fileName: file.name,
@@ -55,5 +53,5 @@ export const getPDFInfo = async (file: File): Promise<PDFInfo> => {
   };
 };
 
-// Alias for backward compatibility if needed
+// Alias for backward compatibility
 export const parsePDF = getPDFInfo;

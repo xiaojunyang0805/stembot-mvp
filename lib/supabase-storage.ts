@@ -3,7 +3,7 @@ import { User } from '@supabase/supabase-js';
 
 export interface UploadResult {
   success: boolean;
-  data?: any;
+  data?: { path: string };
   error?: string;
   publicUrl?: string;
 }
@@ -63,21 +63,37 @@ export const saveBotToDatabase = async (
   fileName: string,
   fileUrl: string,
   userId: string,
-  pdfInfo?: any
+  pdfInfo?: PDFInfo // Use the proper type from pdf-utils
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const supabaseClient = createSupabaseBrowserClient();
     
+    // Use a proper interface for the insert data
+    interface InsertData {
+      name: string;
+      file_name: string;
+      file_url: string;
+      user_id: string;
+      created_at: string;
+      page_count?: number;
+    }
+    
+    const insertData: InsertData = {
+      name: botName,
+      file_name: fileName,
+      file_url: fileUrl,
+      user_id: userId,
+      created_at: new Date().toISOString(),
+    };
+    
+    // Only add page_count if it exists in your database schema
+    if (pdfInfo?.pageCount) {
+      insertData.page_count = pdfInfo.pageCount;
+    }
+
     const { error } = await supabaseClient
       .from('bots')
-      .insert({
-        name: botName,
-        file_name: fileName,
-        file_url: fileUrl,
-        user_id: userId,
-        page_count: pdfInfo?.pageCount,
-        created_at: new Date().toISOString(),
-      });
+      .insert(insertData);
 
     if (error) {
       console.error('Database error:', error);
@@ -97,3 +113,10 @@ export const saveBotToDatabase = async (
     };
   }
 };
+
+// Add the PDFInfo interface if needed (or import from pdf-utils)
+interface PDFInfo {
+  pageCount: number;
+  firstPageText: string;
+  metadata?: Record<string, unknown>;
+}

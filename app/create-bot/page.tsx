@@ -17,8 +17,6 @@ export default function CreateBotPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-
-  const MAX_FILE_SIZE = 5 * 1024 * 1024;
   const supabaseClient = createSupabaseBrowserClient();
 
   useEffect(() => {
