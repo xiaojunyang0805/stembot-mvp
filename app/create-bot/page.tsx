@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser-client';
 import { User } from '@supabase/supabase-js';
+import { uploadPDFToStorage, saveBotToDatabase } from '@/lib/supabase-storage';
+import { validatePDF, getPDFInfo } from '@/lib/pdf-utils';
 
 export default function CreateBotPage() {
   const [botName, setBotName] = useState('');
@@ -17,15 +19,11 @@ export default function CreateBotPage() {
   const router = useRouter();
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
-  // Use your existing browser client
   const supabaseClient = createSupabaseBrowserClient();
 
-  // Check authentication on component mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('Checking authentication for create-bot...');
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         
         if (error) {
@@ -51,7 +49,6 @@ export default function CreateBotPage() {
 
     checkAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event);
@@ -82,117 +79,78 @@ export default function CreateBotPage() {
     if (!file) {
       newErrors.file = 'Please select a PDF file';
       isValid = false;
-    } else if (!file.name.toLowerCase().endsWith('.pdf')) {
-      newErrors.file = 'Only PDF files are allowed';
-      isValid = false;
-    } else if (file.size > MAX_FILE_SIZE) {
-      newErrors.file = 'File size must be less than 5MB';
-      isValid = false;
     }
 
     setErrors(newErrors);
     return isValid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+// Update the handleSubmit function to use simple validation:
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
+  if (!file || !user) return;
 
-    setIsSubmitting(true);
-    setErrors({}); // Clear previous errors
+  setIsSubmitting(true);
+  setErrors({});
 
-    try {
-      if (!file) throw new Error('No file selected');
-      if (!user) throw new Error('User not authenticated');
-
-      console.log('User authenticated:', user.id, user.email);
-
-      // Generate unique file name with folder structure
-      const timestamp = Date.now();
-      const safeBotName = botName.replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `${user.id}/${safeBotName}_${timestamp}.pdf`;
-
-      console.log('Uploading file:', fileName, 'for user:', user.id);
-
-      // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabaseClient.storage
-        .from('bots')
-        .upload(fileName, file, {
-          contentType: 'application/pdf',
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error('Upload error details:', uploadError);
-        
-        // More detailed error handling
-        if (uploadError.message.includes('bucket') || uploadError.message.includes('Bucket')) {
-          throw new Error('Storage bucket not found or inaccessible. Please check bucket permissions.');
-        } else if (uploadError.message.includes('JWT') || uploadError.message.includes('auth') || uploadError.message.includes('token')) {
-          throw new Error('Authentication expired or invalid. Please sign in again.');
-        } else if (uploadError.message.includes('exists')) {
-          throw new Error('A file with this name already exists. Please try a different bot name.');
-        } else if (uploadError.message.includes('policy') || uploadError.message.includes('permission')) {
-          throw new Error('Storage permissions error. Please check bucket policies.');
-        } else {
-          throw new Error(`Upload failed: ${uploadError.message}`);
-        }
-      }
-
-      if (!uploadData) {
-        throw new Error('Upload failed: No data returned from storage');
-      }
-
-      console.log('File uploaded successfully:', uploadData);
-
-      // Get public URL
-      const { data: urlData } = supabaseClient.storage
-        .from('bots')
-        .getPublicUrl(fileName);
-
-      console.log('Public URL:', urlData);
-
-      // Store metadata in database
-      const { error: dbError } = await supabaseClient
-        .from('bots')
-        .insert({
-          name: botName,
-          file_name: fileName,
-          file_url: urlData.publicUrl,
-          user_id: user.id,
-          created_at: new Date().toISOString(),
-        });
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        // Don't throw error for DB failure since file was uploaded successfully
-        // Just log it and continue
-      }
-
-      setIsSuccess(true);
-      
-      // Reset form
-      setBotName('');
-      setFile(null);
-      
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
-
-    } catch (error: unknown) {
-      console.error('Error creating bot:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to upload file. Please try again.';
-      setErrors({ 
-        file: errorMessage
-      });
-      setIsSuccess(false);
-    } finally {
-      setIsSubmitting(false);
+  try {
+    // Validate PDF file with simple validation
+    const validation = await validatePDF(file);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
     }
-  };
+
+    // Get basic PDF info (without heavy parsing)
+    console.log('Getting basic PDF info...');
+    const pdfInfo = await getPDFInfo(file);
+    console.log('PDF basic info:', pdfInfo);
+
+    // Upload to Supabase Storage
+    console.log('Uploading to Supabase Storage...');
+    const uploadResult = await uploadPDFToStorage(file, user, botName);
+    if (!uploadResult.success) {
+      throw new Error(uploadResult.error);
+    }
+
+    // Save to database
+    console.log('Saving to database...');
+    const saveResult = await saveBotToDatabase(
+      botName,
+      uploadResult.data?.path || '',
+      uploadResult.publicUrl || '',
+      user.id,
+      pdfInfo
+    );
+
+    if (!saveResult.success) {
+      throw new Error(saveResult.error);
+    }
+
+    console.log('Bot created successfully!');
+    setIsSuccess(true);
+    
+    // Reset form
+    setBotName('');
+    setFile(null);
+    
+    // Redirect after 2 seconds
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 2000);
+
+  } catch (error: unknown) {
+    console.error('Error creating bot:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create bot. Please try again.';
+    setErrors({ 
+      file: errorMessage
+    });
+    setIsSuccess(false);
+  } finally {
+    setIsSubmitting(false);
+  }
+ };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
