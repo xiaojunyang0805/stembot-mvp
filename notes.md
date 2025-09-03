@@ -109,3 +109,8 @@ Issue: http://localhost:3000 (root page) direct to dashboard directly. Logout do
 Problem: Middleware.ts: Using getSession() which reads from storage (cookies) without verification
 Fix:  Middleware.ts: Using getUser() which verifies authenticity with Supabase Auth server
 Outcome: Secure authentication flow without the security warning
+
+September 3, 2025
+Issue: Uploading spinner cannot properly exeucate uploading. 
+Fix: set Supabase Storage Policies - Proper Database RLS Policies - Proper policies for the bots table
+Outcome: PDF files now upload successfully to Supabase Storage.The file can be viewed and operated in supabase bots bucket. 
