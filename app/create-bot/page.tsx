@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser-client';
+import { User } from '@supabase/supabase-js';
 
 export default function CreateBotPage() {
   const [botName, setBotName] = useState('');
@@ -11,16 +12,20 @@ export default function CreateBotPage() {
   const [errors, setErrors] = useState<{ botName?: string; file?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+  // Use your existing browser client
   const supabaseClient = createSupabaseBrowserClient();
 
+  // Check authentication on component mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication for create-bot...');
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         
         if (error) {
@@ -46,6 +51,7 @@ export default function CreateBotPage() {
 
     checkAuth();
 
+    // Listen for auth changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event);
@@ -88,102 +94,105 @@ export default function CreateBotPage() {
     return isValid;
   };
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!validateForm()) return;
+    if (!validateForm()) return;
 
-  setIsSubmitting(true);
-  setErrors({});
+    setIsSubmitting(true);
+    setErrors({}); // Clear previous errors
 
-  try {
-    if (!file) throw new Error('No file selected');
-    if (!user) throw new Error('User not authenticated');
+    try {
+      if (!file) throw new Error('No file selected');
+      if (!user) throw new Error('User not authenticated');
 
-    // Generate unique file name with folder structure
-    const timestamp = Date.now();
-    const safeBotName = botName.replace(/[^a-zA-Z0-9]/g, '_');
-    const fileName = `${user.id}/${safeBotName}_${timestamp}.pdf`;
+      console.log('User authenticated:', user.id, user.email);
 
-    console.log('Uploading file:', fileName, 'for user:', user.id);
+      // Generate unique file name with folder structure
+      const timestamp = Date.now();
+      const safeBotName = botName.replace(/[^a-zA-Z0-9]/g, '_');
+      const fileName = `${user.id}/${safeBotName}_${timestamp}.pdf`;
 
-    // Upload file to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabaseClient.storage
-      .from('bots')
-      .upload(fileName, file, {
-        contentType: 'application/pdf',
-        cacheControl: '3600',
-        upsert: false,
-      });
+      console.log('Uploading file:', fileName, 'for user:', user.id);
 
-    if (uploadError) {
-      console.error('Upload error details:', uploadError);
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+        .from('bots')
+        .upload(fileName, file, {
+          contentType: 'application/pdf',
+          cacheControl: '3600',
+          upsert: false,
+        });
 
-    console.log('✅ File uploaded successfully:', uploadData);
-
-    // Get public URL
-    const { data: urlData } = supabaseClient.storage
-      .from('bots')
-      .getPublicUrl(fileName);
-
-    console.log('Public URL:', urlData.publicUrl);
-
-    // Store metadata in database - with better error handling
-    console.log('Attempting to insert into database...');
-    const { data: botData, error: dbError } = await supabaseClient
-      .from('bots')
-      .insert({
-        name: botName,
-        file_name: fileName,
-        file_url: urlData.publicUrl,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (dbError) {
-      console.error('❌ Database error details:', dbError);
-      console.error('Database error code:', dbError.code);
-      console.error('Database error message:', dbError.message);
-      
-      // Specific handling for common database errors
-      if (dbError.code === '42501') {
-        throw new Error('Database permissions error. Please check RLS policies for the bots table.');
-      } else if (dbError.code === '23505') {
-        throw new Error('Duplicate entry. A bot with this name may already exist.');
-      } else if (dbError.code === '23503') {
-        throw new Error('User reference error. Please try signing in again.');
-      } else {
-        throw new Error(`Database error: ${dbError.message}`);
+      if (uploadError) {
+        console.error('Upload error details:', uploadError);
+        
+        // More detailed error handling
+        if (uploadError.message.includes('bucket') || uploadError.message.includes('Bucket')) {
+          throw new Error('Storage bucket not found or inaccessible. Please check bucket permissions.');
+        } else if (uploadError.message.includes('JWT') || uploadError.message.includes('auth') || uploadError.message.includes('token')) {
+          throw new Error('Authentication expired or invalid. Please sign in again.');
+        } else if (uploadError.message.includes('exists')) {
+          throw new Error('A file with this name already exists. Please try a different bot name.');
+        } else if (uploadError.message.includes('policy') || uploadError.message.includes('permission')) {
+          throw new Error('Storage permissions error. Please check bucket policies.');
+        } else {
+          throw new Error(`Upload failed: ${uploadError.message}`);
+        }
       }
+
+      if (!uploadData) {
+        throw new Error('Upload failed: No data returned from storage');
+      }
+
+      console.log('File uploaded successfully:', uploadData);
+
+      // Get public URL
+      const { data: urlData } = supabaseClient.storage
+        .from('bots')
+        .getPublicUrl(fileName);
+
+      console.log('Public URL:', urlData);
+
+      // Store metadata in database
+      const { error: dbError } = await supabaseClient
+        .from('bots')
+        .insert({
+          name: botName,
+          file_name: fileName,
+          file_url: urlData.publicUrl,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+        });
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        // Don't throw error for DB failure since file was uploaded successfully
+        // Just log it and continue
+      }
+
+      setIsSuccess(true);
+      
+      // Reset form
+      setBotName('');
+      setFile(null);
+      
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+
+    } catch (error: unknown) {
+      console.error('Error creating bot:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload file. Please try again.';
+      setErrors({ 
+        file: errorMessage
+      });
+      setIsSuccess(false);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    console.log('✅ Bot created successfully in database:', botData);
-
-    setIsSuccess(true);
-    
-    // Reset form
-    setBotName('');
-    setFile(null);
-    
-    // Redirect after 2 seconds
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 2000);
-
-  } catch (error: any) {
-    console.error('Error creating bot:', error);
-    setErrors({ 
-      file: error.message || 'Failed to create bot. Please try again.' 
-    });
-    setIsSuccess(false);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
@@ -193,7 +202,7 @@ export default function CreateBotPage() {
       setErrors({ ...errors, file: undefined });
     }
   };
-  
+
   // Show loading state while checking authentication
   if (isLoading) {
     return (

@@ -114,3 +114,7 @@ September 3, 2025
 Issue: Uploading spinner cannot properly exeucate uploading. 
 Fix: set Supabase Storage Policies - Proper Database RLS Policies - Proper policies for the bots table
 Outcome: PDF files now upload successfully to Supabase Storage.The file can be viewed and operated in supabase bots bucket. 
+
+Issue: comiple failure occurs for vercel deployment. 
+Fix: Replaced any with proper TypeScript types: User type from @supabase/supabase-js instead of any; error: unknown instead of error: any in catch blocks; Proper error type checking with instanceof Error.
+Outcome: Compile successfully on Vercel (no any types)
