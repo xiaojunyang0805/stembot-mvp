@@ -124,3 +124,13 @@ Outcome: Compile successfully on Vercel (no any types)
 Improvment: 
 1. In dashboard/page.tsx: Replace mock data with real fetch. 
 2. Display bots in cards/list: Show name, created_at, and add "View Bot" button linking to /bot/[id] viadynamic route by creating placeholder app/bot/[id]/page.tsx. 
+
+September 4, 2025
+Work Package 3: Task 1 - Setup AI Vector Database and Install Dependencies 
+Objective: Set up Pinecone vector database, install LangChain dependencies, and configure OpenAI API key for the StemBot MVP project.
+
+Tasks Completed
+Pinecone Setup:
+1. Created `stembot-vectors` index in Pinecone (dimension: 1536, metric: cosine, serverless, AWS us-east-1).
+2. Added `PINECONE_API_KEY` to `.env.local` and verified in Pinecone dashboard.
+3. Created `lib/pinecone.ts` to initialize Pinecone client and export `pineconeIndex`.
