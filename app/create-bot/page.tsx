@@ -189,18 +189,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     );
   }
   
-  //async function handleCreateBot(file: File) {
-    //try {
-     // const filePath = `bots/${file.name}`;
-      //const { error } = await supabase.storage.from('bots').upload(filePath, file);
-      //if (error) throw error;
-     // console.log('Uploaded file path:', filePath);
-     // return filePath;
-    //} catch (error) {
-    //console.error('Error uploading PDF:', error);
-    //}
-  //}
-  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">

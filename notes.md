@@ -138,8 +138,26 @@ Pinecone Setup:
 September 6, 2025
 WP3_Task2: PDF parsing and embedding generation.
 Objective: Implement PDF parsing from Supabase storage, text extraction, OpenAI embedding generation, and Pinecone vector storage
+check: http://localhost:3000/api/process-pdf
+Expected: {"message":"PDF processing API is running","usage":"Send a POST request with { \"filePath\": \"your-file.pdf\" }"}
 ##Test command in command prompt:
 curl -X POST http://localhost:3000/api/process-pdf \ -H "Content-Type: application/json" \ -d "{\"filePath\": \"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757108708629.pdf\"}"
+Terminal output: Processing PDF request received
+File path: dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757108708629.pdf
+Fetching PDF from Supabase...
+Converting Blob to ArrayBuffer...
+ArrayBuffer size: 261017
+Parsing PDF...
+PDF parsed successfully, text length: 16103
+Splitting text into chunks...
+Number of chunks: 5
+Generating embeddings...
+Initializing PineconeStore...
+Storing embeddings in Pinecone...
+Unhandled error: [Error [InsufficientQuotaError]: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+Troubleshooting URL: https://js.langchain.com/docs/troubleshooting/errors/MODEL_RATE_LIMIT/
+]
+
 Challenges and cause
 1. PDF Parsing Library Issues
 Problem: Multiple library failures and compatibility issues
