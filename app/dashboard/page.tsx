@@ -16,7 +16,7 @@ export default function Dashboard() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
   const [bots, setBots] = useState<Bot[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  const [, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function Dashboard() {
         }
 
         setBots(data || []);
-      } catch (err) {
+      } catch {
         setError('An unexpected error occurred.');
       } finally {
         setIsLoading(false);

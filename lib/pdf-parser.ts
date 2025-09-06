@@ -2,24 +2,19 @@ export async function parsePDF(file: ArrayBuffer): Promise<string> {
   try {
     console.log('Parsing PDF, buffer size:', file.byteLength);
     
-    // Dynamic import
+    // Dynamic import with proper typing
     const pdfjsLib = await import('pdfjs-dist');
-    
-    // For server-side environments, use the worker entry point correctly
-    // Note: pdfjs-dist/build/pdf.worker.entry exports a string path
     const pdfjsWorkerModule = await import('pdfjs-dist/build/pdf.worker.entry');
-    // Extract the default export which should be the string path
     const workerSrc = pdfjsWorkerModule.default;
     
-    // Set the worker source
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
     const pdf = await pdfjsLib.getDocument({ 
       data: file,
       useSystemFonts: true,
-      useWorkerFetch: false,    // Disable HTTP worker fetching
+      useWorkerFetch: false,
       isEvalSupported: false,
-      disableFontFace: true,    // Reduces potential canvas dependency
+      disableFontFace: true,
     }).promise;
 
     let text = '';
@@ -28,9 +23,19 @@ export async function parsePDF(file: ArrayBuffer): Promise<string> {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       
+      // Define explicit types for the callback parameters
       const pageText = content.items
-        .filter((item: any) => 'str' in item && item.str?.trim())
-        .map((item: any) => item.str)
+        .filter((item: unknown) => {
+          // Type guard to check if item has 'str' property
+          const hasStr = typeof item === 'object' && item !== null && 'str' in item;
+          return hasStr && typeof (item as { str: unknown }).str === 'string';
+        })
+        .map((item: unknown) => {
+          // Explicitly type the item and return the string
+          const textItem = item as { str: string };
+          return textItem.str.trim();
+        })
+        .filter((str: string) => str.length > 0)
         .join(' ');
       
       text += pageText + '\n';
