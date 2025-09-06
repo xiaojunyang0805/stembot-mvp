@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:ts": "ts-node --require tsconfig-paths/register --project tsconfig.json"
   },
   "dependencies": {
     "@langchain/core": "^0.3.74",
@@ -16,9 +17,9 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.0",
+    "canvas": "^3.2.0",
     "next": "^15.5.2",
-    "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^5.4.149",
+    "pdfjs-dist": "^3.11.174",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
@@ -26,13 +27,15 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdfjs-dist": "^2.10.377",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
+    "raw-loader": "^4.0.2",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5"
   }
 }
-

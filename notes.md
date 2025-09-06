@@ -134,3 +134,26 @@ Pinecone Setup:
 1. Created `stembot-vectors` index in Pinecone (dimension: 1536, metric: cosine, serverless, AWS us-east-1).
 2. Added `PINECONE_API_KEY` to `.env.local` and verified in Pinecone dashboard.
 3. Created `lib/pinecone.ts` to initialize Pinecone client and export `pineconeIndex`.
+
+September 6, 2025
+WP3_Task2: PDF parsing and embedding generation.
+Objective: Implement PDF parsing from Supabase storage, text extraction, OpenAI embedding generation, and Pinecone vector storage
+##Test command in command prompt:
+curl -X POST http://localhost:3000/api/process-pdf \ -H "Content-Type: application/json" \ -d "{\"filePath\": \"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757108708629.pdf\"}"
+Challenges and cause
+1. PDF Parsing Library Issues
+Problem: Multiple library failures and compatibility issues
+pdfjs-dist: Canvas dependency errors and worker module resolution issues
+pdf-parse: Test file access errors during build process
+pdf2json: Text extraction returning empty results (0 characters)
+Root Cause:
+Server vs client environment mismatches
+Missing native dependencies (canvas, GTK libraries)
+Library-specific build-time file access issues
+2. Environment Configuration Problems
+Canvas installation failures on Windows
+Module resolution errors in Next.js/Turbopack
+TypeScript declaration issues for untyped libraries
+3. OpenAI API Limitations
+Rate limiting and quota exceeded errors (429 InsufficientQuotaError)
+Billing and usage plan restrictions
