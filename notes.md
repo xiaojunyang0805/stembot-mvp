@@ -188,3 +188,18 @@ Outcome:
 3. Text Chunking: 5 valid chunks created from extracted text
 4. Embedding Initialization: OpenAI embeddings client configured correctly
 5. Pinecone Integration: Connection established to stembot-vectors index
+
+September 7, 2025
+Switching Openai API to Hugging Face API, then tested successfully. 
+File: "IOT Based Environment Monitoring System Using ESP32.pdf" (renamed to Stem_project_01_1757108708629.pdf)
+Details: 5 pages, 261,017 bytes, 16,103 characters.
+
+Embedding: Generated 768-dimensional vectors using sentence-transformers/all-mpnet-base-v2 via Hugging Face Inference API, resolving an initial authentication error with a new API key.
+
+Storage: Stored embeddings in the stembot-vectros-hf Pinecone index (768 dim, cosine, serverless, aws us-east-1) under the pdf-embeddings namespace, fixing a 404 error due to a name typo (stembot-vectors-hf vs. stembot-vectros-hf).
+
+Processing Time: ~5-10 seconds (including network calls).
+Capacity: Fits within Pinecone’s free-tier ~100k vector limit.
+
+
+

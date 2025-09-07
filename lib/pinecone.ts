@@ -6,6 +6,6 @@ const pc = new Pinecone({
 });
 
 // Target the stembot-vectors index
-const pineconeIndex = pc.index('stembot-vectors');
+const pineconeIndex = pc.index('stembot-vectors-hf');
 
 export { pineconeIndex };
