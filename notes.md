@@ -201,5 +201,10 @@ Storage: Stored embeddings in the stembot-vectros-hf Pinecone index (768 dim, co
 Processing Time: ~5-10 seconds (including network calls).
 Capacity: Fits within Pinecone’s free-tier ~100k vector limit.
 
+September 8, 2025
+WP3_Task3: Test Embedding Retrieval and Supabase Integration
+Task3.1: Implement Retrieval Logic by adding "app/api/retrieve-embeddings/route.ts"
+Test: Run "npm run dev", use curl:
+curl -X POST http://localhost:3000/api/retrieve-embeddings -H "Content-Type: application/json" -d "{\"query\": \"ESP32 temperature sensor\", \"botId\": \"01927fdc-0f78-499f-8178-1edea3de426c\"}"
 
 
