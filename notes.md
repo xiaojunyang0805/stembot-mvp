@@ -207,4 +207,5 @@ Task3.1: Implement Retrieval Logic by adding "app/api/retrieve-embeddings/route.
 Test: Run "npm run dev", use curl:
 curl -X POST http://localhost:3000/api/retrieve-embeddings -H "Content-Type: application/json" -d "{\"query\": \"ESP32 temperature sensor\", \"botId\": \"01927fdc-0f78-499f-8178-1edea3de426c\"}"
 
-
+Test with score threshold
+curl -X POST http://localhost:3000/api/retrieve-embeddings -H "Content-Type: application/json" -d "{\"query\": \"ESP32 temperature sensor\", \"botId\": \"01927fdc-0f78-499f-8178-1edea3de426c\", \"topK\": 10, \"scoreThreshold\": 0.6}"
