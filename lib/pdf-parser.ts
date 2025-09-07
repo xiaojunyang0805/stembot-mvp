@@ -1,4 +1,12 @@
-// lib/pdf-parser.ts - Successful implementation
+// lib/pdf-parser.ts - Fixed implementation
+import { TextItem } from 'pdfjs-dist/types/src/display/api';
+
+// Alternative using local interface
+interface PDFTextItem {
+  str?: string;
+  // Add other properties you might need
+}
+
 export async function parsePDF(file: ArrayBuffer): Promise<string> {
   try {
     const pdfjsLib = await import('pdfjs-dist');
@@ -20,8 +28,8 @@ export async function parsePDF(file: ArrayBuffer): Promise<string> {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       const pageText = content.items
-        .filter((item: any) => 'str' in item && item.str?.trim())
-        .map((item: any) => item.str)
+        .filter((item: PDFTextItem): item is TextItem => 'str' in item && (item as TextItem).str?.trim() !== '')
+        .map((item: PDFTextItem) => (item as TextItem).str)
         .join(' ');
       text += pageText + '\n';
     }
