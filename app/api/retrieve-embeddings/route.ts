@@ -33,15 +33,6 @@ function getEmbeddingsModel(): HuggingFaceInferenceEmbeddings {
   return embeddings;
 }
 
-// Interface for Pinecone result with score
-interface PineconeResultWithScore {
-  pageContent: string;
-  metadata: {
-    score?: number;
-    [key: string]: unknown; // Replace any with unknown
-  };
-}
-
 interface RequestBody {
   query: string;
   botId: string;

@@ -256,3 +256,5 @@ Developed retrieval logic in /api/retrieve-embeddings, successfully tested with 
 Debugged and resolved namespace mismatches, ensuring scalability by switching to HuggingFace to avoid OpenAI limits.
 Output: AI-powered bot creation with embeddings functional, tested locally and ready for Vercel deployment.
 Reflection: Learned LangChain integration, vector similarity in Pinecone, and handled embedding errors. Notes updated for WP4.
+
+curl -X POST https://<your-vercel-url>/api/retrieve-embeddings -H "Content-Type: application/json" -d "{\"query\": \"PDF content will be processed for AI embeddings in WP3\", \"botId\": \"ea490dea-47df-42d2-97a7-3625087436a9\"}"

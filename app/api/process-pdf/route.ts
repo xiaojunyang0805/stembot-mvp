@@ -2,9 +2,21 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { parsePDF } from '@/lib/pdf-parser';
+import { Pinecone } from '@pinecone-database/pinecone';
 import { PineconeStore } from '@langchain/pinecone';
 import { HuggingFaceInferenceEmbeddings } from '@langchain/community/embeddings/hf';
-import { pineconeIndex } from '@/lib/pinecone';
+
+// Initialize Pinecone client with debug logging
+const apiKey = process.env.PINECONE_API_KEY;
+if (!apiKey) {
+  console.error('Pinecone API key is missing in environment variables');
+  throw new Error('Missing PINECONE_API_KEY environment variable');
+}
+console.log('Pinecone API key loaded:', apiKey.substring(0, 4) + '...' + apiKey.substring(apiKey.length - 4));
+const pinecone = new Pinecone({
+  apiKey: apiKey,
+});
+const pineconeIndex = pinecone.index(process.env.PINECONE_INDEX_NAME || 'stembot-vectors-hf');
 
 export async function POST(request: Request) {
   console.log('Processing PDF request received');
@@ -66,68 +78,29 @@ export async function POST(request: Request) {
       console.error('No text content found in PDF');
       return NextResponse.json({ 
         error: 'No text content found in PDF' 
-      }, { status: 500 });
+      }, { status: 400 });
     }
 
     // Split text into chunks
     console.log('Splitting text into chunks...');
-    const chunks = text.split('\n').filter(chunk => chunk.trim().length > 0);
+    const chunkSize = 1000;
+    const chunks = [];
+    for (let i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.slice(i, i + chunkSize));
+    }
     console.log('Number of chunks:', chunks.length);
 
-    if (chunks.length === 0) {
-      console.error('No valid chunks extracted');
-      return NextResponse.json({ 
-        error: 'No valid chunks extracted' 
-      }, { status: 500 });
-    }
-
-    // Check if HuggingFace API key is available
-    if (!process.env.HUGGINGFACE_API_KEY) {
-      console.error('HUGGINGFACE_API_KEY is not set');
-      return NextResponse.json({ 
-        error: 'Hugging Face API key not configured' 
-      }, { status: 500 });
-    }
-
-    // Generate embeddings with Hugging Face
-    console.log('Generating embeddings with Hugging Face...');
+    // Initialize embeddings model
+    console.log('Initializing HuggingFace embeddings...');
     const embeddings = new HuggingFaceInferenceEmbeddings({
       apiKey: process.env.HUGGINGFACE_API_KEY,
       model: 'sentence-transformers/all-mpnet-base-v2',
-      maxRetries: 3,
     });
 
-    // Test a single embedding to verify setup
-    try {
-      const testEmbedding = await embeddings.embedQuery(chunks[0].substring(0, 500));
-      console.log('Test embedding generated, length:', testEmbedding.length);
-    } catch (testError) {
-      console.error('HF embedding test failed:', testError);
-      return NextResponse.json({ 
-        error: 'HF embedding setup failed',
-        details: testError instanceof Error ? testError.message : 'Check API key and model'
-      }, { status: 500 });
-    }
-
-    // Create bot-specific namespace
+    // Initialize Pinecone store
+    console.log('Initializing Pinecone store with namespace:', `bot-${botId}`);
     const namespace = `bot-${botId}`;
-    console.log('Using Pinecone namespace:', namespace);
-
-    // Initialize PineconeStore with bot-specific namespace
-    console.log('Initializing PineconeStore...');
-    let store;
-    try {
-      store = new PineconeStore(embeddings, {
-        pineconeIndex,
-        namespace: namespace,
-      });
-    } catch (storeError) {
-      console.error('PineconeStore initialization error:', storeError);
-      return NextResponse.json({ 
-        error: 'Failed to initialize Pinecone store',
-        details: storeError instanceof Error ? storeError.message : 'Unknown store error'
-      }, { status: 500 });
-    }
+    const store = new PineconeStore(embeddings, { pineconeIndex, namespace });
 
     // Store embeddings in Pinecone
     console.log('Storing embeddings in Pinecone...');
