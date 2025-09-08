@@ -244,3 +244,15 @@ Supabase bot table:
 {"idx":0,"id":"ea490dea-47df-42d2-97a7-3625087436a9","name":"Stem_project_01","file_name":"IOT Based Environment Monitoring System Using ESP32.pdf","file_url":"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757334941152.pdf","user_id":"dd906b46-0f8e-4413-9e85-0972e1c9f4f6","created_at":"2025-09-08 12:35:42.400663+00","updated_at":"2025-09-08 12:35:42.400663+00","page_count":1,"file_size":null,"parsed_at":"2025-09-08 12:35:41.648+00","first_page_text":"PDF content will be processed for AI embeddings in WP3","pinecone_namespace":"bot-1757334941647","metadata":"{\"uploadDate\": \"2025-09-08T12:35:41.648Z\", \"originalFileName\": \"IOT Based Environment Monitoring System Using ESP32.pdf\"}"}
 
 curl -X POST http://localhost:3000/api/process-pdf -H "Content-Type: application/json" -d "{\"filePath\": \"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757334941152.pdf\", \"botId\": \"ea490dea-47df-42d2-97a7-3625087436a9\"}"
+Outcome: {"message":"PDF processed and embeddings stored","details":{"chunks":5,"embeddingModel":"all-mpnet-base-v2","namespace":"bot-ea490dea-47df-42d2-97a7-3625087436a9","botId":"ea490dea-47df-42d2-97a7-3625087436a9"}}
+
+WP3_summary
+Work Package 3: AI Integration & Bot Creation
+Achievements:
+Set up a Pinecone index (stembot-vectors, dimension 768 for all-mpnet-base-v2) and installed dependencies (LangChain, pdfjs-dist, etc.).
+Implemented embedding generation using HuggingFace’s all-mpnet-base-v2 model, processing PDFs into 5 chunks for botId: ea490dea-47df-42d2-97a7-3625087436a9.
+Integrated Supabase for bot metadata storage, with pinecone_namespace correctly set to bot-ea490dea-47df-42d2-97a7-3625087436a9.
+Developed retrieval logic in /api/retrieve-embeddings, successfully tested with a sample query.
+Debugged and resolved namespace mismatches, ensuring scalability by switching to HuggingFace to avoid OpenAI limits.
+Output: AI-powered bot creation with embeddings functional, tested locally and ready for Vercel deployment.
+Reflection: Learned LangChain integration, vector similarity in Pinecone, and handled embedding errors. Notes updated for WP4.

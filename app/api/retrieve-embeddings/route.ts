@@ -19,7 +19,6 @@ const supabase = createClient(
 const PINECONE_INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'stembot-vectors-hf';
 const EMBEDDING_MODEL = 'sentence-transformers/all-mpnet-base-v2';
 const DEFAULT_TOP_K = 5;
-const MIN_SCORE_THRESHOLD = 0.5;
 
 // Cache for embeddings model (improves performance)
 let embeddings: HuggingFaceInferenceEmbeddings | null = null;
@@ -39,25 +38,32 @@ interface PineconeResultWithScore {
   pageContent: string;
   metadata: {
     score?: number;
-    [key: string]: any;
+    [key: string]: unknown; // Replace any with unknown
   };
+}
+
+interface RequestBody {
+  query: string;
+  botId: string;
+  topK?: number;
+  scoreThreshold?: number;
 }
 
 export async function POST(request: Request) {
   try {
-    const { query, botId, topK = DEFAULT_TOP_K, scoreThreshold } = await request.json();
-    
+    const { query, botId, topK = DEFAULT_TOP_K, scoreThreshold }: RequestBody = await request.json();
+
     // Validate required parameters
     if (!query?.trim()) {
       return NextResponse.json(
-        { error: 'Missing or empty query parameter' }, 
+        { error: 'Missing or empty query parameter' },
         { status: 400 }
       );
     }
 
     if (!botId) {
       return NextResponse.json(
-        { error: 'Missing botId parameter' }, 
+        { error: 'Missing botId parameter' },
         { status: 400 }
       );
     }
@@ -72,119 +78,46 @@ export async function POST(request: Request) {
     if (botError || !bot) {
       console.error('Supabase fetch error:', botError);
       return NextResponse.json(
-        { error: 'Bot not found or error fetching bot metadata' }, 
+        { error: 'Bot not found or error fetching bot metadata' },
         { status: 404 }
       );
     }
 
     if (!bot.pinecone_namespace) {
       return NextResponse.json(
-        { error: 'No embeddings found for this bot. Please process a PDF first.' }, 
+        { error: 'No embeddings found for this bot. Please process the PDF first.' },
         { status: 404 }
       );
     }
 
-    // Validate topK parameter
-    const validatedTopK = Math.min(Math.max(Number(topK), 1), 20);
+    const pineconeIndex = pinecone.index(PINECONE_INDEX_NAME);
+    const store = new PineconeStore(getEmbeddingsModel(), { pineconeIndex, namespace: bot.pinecone_namespace });
 
-    // Get embeddings model (with caching)
-    const embeddingsModel = getEmbeddingsModel();
+    const validatedTopK = Math.min(Math.max(topK, 1), 10); // Clamp between 1 and 10
+    const results = await store.similaritySearch(query, validatedTopK);
 
-    // Get the Pinecone index
-    const pineconeIndex = pinecone.Index(PINECONE_INDEX_NAME);
-    
-    // Initialize the vector store with the bot-specific namespace
-    let vectorStore: PineconeStore;
-    try {
-      vectorStore = await PineconeStore.fromExistingIndex(embeddingsModel, {
-        pineconeIndex,
-        namespace: bot.pinecone_namespace,
-      });
-    } catch (initError) {
-      console.error('Vector store initialization error:', initError);
-      const errorMessage = initError instanceof Error ? initError.message : 'Unknown initialization error';
-      
-      return NextResponse.json({ 
-        error: 'Failed to initialize vector store',
-        details: errorMessage
-      }, { status: 500 });
-    }
-
-    // Perform similarity search
-    let results: PineconeResultWithScore[];
-    try {
-      // Use type assertion to handle the score in metadata
-      results = await vectorStore.similaritySearch(query, validatedTopK) as PineconeResultWithScore[];
-    } catch (searchError) {
-      console.error('Similarity search error:', searchError);
-      
-      let errorMessage = 'Unknown search error';
-      let errorStatus = 500;
-      
-      if (searchError instanceof Error) {
-        errorMessage = searchError.message;
-        
-        if (searchError.message.includes('namespace')) {
-          errorMessage = `Namespace '${bot.pinecone_namespace}' does not exist or is empty`;
-          errorStatus = 404;
-        } else if (searchError.message.includes('index')) {
-          errorMessage = `Pinecone index '${PINECONE_INDEX_NAME}' not found`;
-          errorStatus = 404;
-        }
+    const formattedResults = results.map((result) => {
+      const score = result.metadata?.score;
+      return {
+        pageContent: result.pageContent,
+        metadata: result.metadata,
+        score: score,
+        confidence: score ? getConfidenceLevel(score) : 'unknown'
+      };
+    }).filter(result => {
+      if (scoreThreshold !== undefined && result.score !== undefined) {
+        return result.score >= scoreThreshold;
       }
-      
-      return NextResponse.json({ 
-        error: 'Similarity search failed',
-        details: errorMessage
-      }, { status: errorStatus });
-    }
+      return true;
+    }).sort((a, b) => {
+      if (a.score === undefined) return 1;
+      if (b.score === undefined) return -1;
+      return b.score - a.score;
+    });
 
-    // Format results with score extraction
-    const formattedResults = results
-      .map(result => {
-        // Extract score from metadata or calculate if not available
-        let score: number | undefined;
-        
-        // Check if score exists in metadata (Pinecone native format)
-        if (result.metadata.score !== undefined) {
-          score = result.metadata.score;
-        } 
-        // Check for alternative score field names
-        else if (result.metadata._score !== undefined) {
-          score = result.metadata._score;
-        }
-        // Check for LangChain-specific score field
-        else if ((result as any).score !== undefined) {
-          score = (result as any).score;
-        }
-
-        return {
-          text: result.pageContent,
-          metadata: result.metadata,
-          score: score,
-          // Add confidence level based on score
-          confidence: score ? getConfidenceLevel(score) : 'unknown'
-        };
-      })
-      .filter(result => {
-        // Apply score threshold if provided and score is available
-        if (scoreThreshold !== undefined && result.score !== undefined) {
-          return result.score >= scoreThreshold;
-        }
-        return true;
-      })
-      // Sort by score descending (highest first)
-      .sort((a, b) => {
-        if (a.score === undefined) return 1;
-        if (b.score === undefined) return -1;
-        return b.score - a.score;
-      });
-
-    // Calculate average score for analytics
     const scores = formattedResults.filter(r => r.score !== undefined).map(r => r.score as number);
     const averageScore = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : undefined;
 
-    // Add query metadata for debugging and analytics
     const responseData = {
       success: true,
       query: query.trim(),
@@ -200,17 +133,14 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json(responseData);
-    
-  } catch (error) {
+
+  } catch (error: unknown) {
     console.error('Retrieval error:', error);
-    
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: errorMessage,
-      timestamp: new Date().toISOString()
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error', details: errorMessage, timestamp: new Date().toISOString() },
+      { status: 500 }
+    );
   }
 }
 

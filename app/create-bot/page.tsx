@@ -27,7 +27,6 @@ export default function CreateBotPage() {
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<{ botName?: string; file?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [processingStatus, setProcessingStatus] = useState('');
@@ -149,7 +148,6 @@ export default function CreateBotPage() {
       console.log('Calling process-pdf API with:', { botId: createdBotId, filePath: createdFilePath });
       await processPDF(createdBotId, createdFilePath);
       setShowProcessButton(false);
-      setIsSuccess(true);
     } catch (error) {
       console.error('Manual process error:', error);
       setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Failed to process manually'));
@@ -159,84 +157,83 @@ export default function CreateBotPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!validateForm() || !file || !user) {
-    return;
-  }
-
-  setIsSubmitting(true);
-  setErrors({});
-  setProcessingStatus('');
-
-  let uploadResult: UploadResult;
-  let saveResult: SaveResult = { success: false };
-  let filePathFromUpload: string = '';
-
-  try {
-    console.log('Starting bot creation...');
-
-    const pdfInfo = await getPDFInfo(file);
-    const validation = await validatePDF(file);
-    if (!validation.isValid) {
-      throw new Error(validation.error);
+    if (!validateForm() || !file || !user) {
+      return;
     }
 
-    console.log('PDF basic info:', pdfInfo);
+    setIsSubmitting(true);
+    setErrors({});
+    setProcessingStatus('');
 
-    console.log('Uploading to Supabase Storage...');
-    uploadResult = await uploadPDFToStorage(file, user, botName);
-    if (!uploadResult.success) {
-      throw new Error(uploadResult.error || 'Upload failed');
+    let uploadResult: UploadResult;
+    let saveResult: SaveResult = { success: false };
+    let filePathFromUpload: string = '';
+
+    try {
+      console.log('Starting bot creation...');
+
+      const pdfInfo = await getPDFInfo(file);
+      const validation = await validatePDF(file);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
+      console.log('PDF basic info:', pdfInfo);
+
+      console.log('Uploading to Supabase Storage...');
+      uploadResult = await uploadPDFToStorage(file, user, botName);
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Upload failed');
+      }
+      console.log('Upload result:', uploadResult);
+      filePathFromUpload = uploadResult.publicUrl?.split('/bots/')[1] || '';
+      if (!filePathFromUpload) {
+        throw new Error('Upload result has no valid public URL');
+      }
+      console.log('Extracted filePathFromUpload:', filePathFromUpload);
+      setCreatedFilePath(filePathFromUpload);
+
+      console.log('Saving to database...');
+      saveResult = await saveBotToDatabase(
+        botName,
+        file.name,
+        filePathFromUpload,
+        user.id,
+        pdfInfo,
+        '' // Empty botId, will be updated with data.id
+      );
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Save failed');
+      }
+      console.log('Save result:', saveResult);
+
+      const botId = saveResult.data?.id;
+      if (!botId) {
+        throw new Error('Failed to get botId from save result');
+      }
+      setCreatedBotId(botId);
+      console.log('Bot ID created:', botId);
+
+      console.log('About to call processPDF with botId:', botId, 'filePath:', filePathFromUpload);
+      setProcessingStatus('Processing PDF and generating embeddings...');
+      await processPDF(botId, filePathFromUpload);
+
+      console.log('processPDF completed successfully');
+
+      setShowProcessButton(false);
+      setTimeout(() => router.push('/dashboard'), 2000);
+    } catch (error) {
+      console.error('Submission error:', error);
+      setErrors({ file: error instanceof Error ? error.message : 'Unknown error' });
+      setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      if (saveResult.success && createdBotId) {
+        setShowProcessButton(true);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-    console.log('Upload result:', uploadResult);
-    filePathFromUpload = uploadResult.publicUrl?.split('/bots/')[1] || '';
-    if (!filePathFromUpload) {
-      throw new Error('Upload result has no valid public URL');
-    }
-    console.log('Extracted filePathFromUpload:', filePathFromUpload);
-    setCreatedFilePath(filePathFromUpload);
-
-    console.log('Saving to database...');
-    saveResult = await saveBotToDatabase(
-      botName,
-      file.name,
-      filePathFromUpload,
-      user.id,
-      pdfInfo,
-      '' // Empty botId, will be updated with data.id
-    );
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || 'Save failed');
-    }
-    console.log('Save result:', saveResult);
-
-    const botId = saveResult.data?.id;
-    if (!botId) {
-      throw new Error('Failed to get botId from save result');
-    }
-    setCreatedBotId(botId);
-    console.log('Bot ID created:', botId);
-
-    console.log('About to call processPDF with botId:', botId, 'filePath:', filePathFromUpload);
-    setProcessingStatus('Processing PDF and generating embeddings...');
-    await processPDF(botId, filePathFromUpload);
-
-    console.log('processPDF completed successfully');
-
-    setIsSuccess(true);
-    setShowProcessButton(false);
-    setTimeout(() => router.push('/dashboard'), 2000);
-  } catch (error) {
-    console.error('Submission error:', error);
-    setErrors({ file: error instanceof Error ? error.message : 'Unknown error' });
-    setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    if (saveResult.success && createdBotId) {
-      setShowProcessButton(true);
-    }
-  } finally {
-    setIsSubmitting(false);
-  }
   };
 
   if (isLoading) {

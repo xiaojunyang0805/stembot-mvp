@@ -14,6 +14,13 @@ export interface SaveResult {
   error?: string;
 }
 
+export interface PDFMetadata {
+  fileName?: string;
+  title?: string;
+  author?: string;
+  subject?: string;
+}
+
 export const uploadPDFToStorage = async (
   file: File, 
   user: User, 
@@ -72,7 +79,7 @@ export const saveBotToDatabase = async (
   pdfInfo: {
     pageCount: number;
     firstPageText: string;
-    metadata?: any;
+    metadata?: PDFMetadata;
     fileSize?: number;
   },
   botId: string // Initial botId (can be empty)
