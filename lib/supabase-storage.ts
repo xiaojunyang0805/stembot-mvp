@@ -8,6 +8,12 @@ export interface UploadResult {
   publicUrl?: string;
 }
 
+export interface SaveResult {
+  success: boolean;
+  data?: { id: string };
+  error?: string;
+}
+
 export const uploadPDFToStorage = async (
   file: File, 
   user: User, 
@@ -60,63 +66,69 @@ export const uploadPDFToStorage = async (
 
 export const saveBotToDatabase = async (
   botName: string,
-  fileName: string,
+  filePath: string,
   fileUrl: string,
   userId: string,
-  pdfInfo?: PDFInfo // Use the proper type from pdf-utils
-): Promise<{ success: boolean; error?: string }> => {
+  pdfInfo: {
+    pageCount: number;
+    firstPageText: string;
+    metadata?: any;
+    fileSize?: number;
+  },
+  botId: string // Initial botId (can be empty)
+): Promise<SaveResult> => {
   try {
     const supabaseClient = createSupabaseBrowserClient();
     
-    // Use a proper interface for the insert data
-    interface InsertData {
-      name: string;
-      file_name: string;
-      file_url: string;
-      user_id: string;
-      created_at: string;
-      page_count?: number;
-    }
-    
-    const insertData: InsertData = {
-      name: botName,
-      file_name: fileName,
-      file_url: fileUrl,
-      user_id: userId,
-      created_at: new Date().toISOString(),
-    };
-    
-    // Only add page_count if it exists in your database schema
-    if (pdfInfo?.pageCount) {
-      insertData.page_count = pdfInfo.pageCount;
-    }
-
-    const { error } = await supabaseClient
+    // Perform initial insert without setting id explicitly
+    const { data, error } = await supabaseClient
       .from('bots')
-      .insert(insertData);
+      .insert({
+        name: botName,
+        file_name: filePath,
+        file_url: fileUrl,
+        user_id: userId,
+        page_count: pdfInfo.pageCount,
+        file_size: pdfInfo.fileSize || null,
+        first_page_text: pdfInfo.firstPageText.substring(0, 500),
+        parsed_at: new Date().toISOString(),
+        // Use botId if provided, otherwise rely on returned data.id
+        pinecone_namespace: botId ? `bot-${botId}` : undefined,
+        metadata: {
+          originalFileName: pdfInfo.metadata?.fileName || '',
+          uploadDate: new Date().toISOString(),
+          ...(pdfInfo.metadata && {
+            pdfTitle: pdfInfo.metadata.title,
+            pdfAuthor: pdfInfo.metadata.author,
+            pdfSubject: pdfInfo.metadata.subject,
+          })
+        }
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error('Database error:', error);
-      return { 
-        success: false, 
-        error: `Database error: ${error.message}` 
-      };
+      console.error('Error saving bot to database:', error);
+      return { success: false, error: error.message };
     }
 
-    return { success: true };
-    
+    // Update with correct botId-based namespace if not provided initially
+    if (!botId && data.id) {
+      const { error: updateError } = await supabaseClient
+        .from('bots')
+        .update({ pinecone_namespace: `bot-${data.id}` })
+        .eq('id', data.id);
+      if (updateError) {
+        console.warn('Failed to update pinecone_namespace:', updateError);
+      }
+    }
+
+    return { success: true, data };
   } catch (error) {
-    console.error('Database save error:', error);
+    console.error('Exception saving bot to database:', error);
     return { 
       success: false, 
-      error: `Database save failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      error: error instanceof Error ? error.message : 'Unknown error' 
     };
   }
 };
-
-// Add the PDFInfo interface if needed (or import from pdf-utils)
-interface PDFInfo {
-  pageCount: number;
-  firstPageText: string;
-  metadata?: Record<string, unknown>;
-}

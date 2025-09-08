@@ -1,13 +1,19 @@
-// app/api/retrieve-embeddings/route.ts
 import { NextResponse } from 'next/server';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { PineconeStore } from '@langchain/pinecone';
 import { HuggingFaceInferenceEmbeddings } from '@langchain/community/embeddings/hf';
+import { createClient } from '@supabase/supabase-js';
 
 // Initialize Pinecone client
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
 });
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Constants
 const PINECONE_INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'stembot-vectors-hf';
@@ -56,6 +62,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch bot metadata from Supabase to get the namespace
+    const { data: bot, error: botError } = await supabase
+      .from('bots')
+      .select('pinecone_namespace')
+      .eq('id', botId)
+      .single();
+
+    if (botError || !bot) {
+      console.error('Supabase fetch error:', botError);
+      return NextResponse.json(
+        { error: 'Bot not found or error fetching bot metadata' }, 
+        { status: 404 }
+      );
+    }
+
+    if (!bot.pinecone_namespace) {
+      return NextResponse.json(
+        { error: 'No embeddings found for this bot. Please process a PDF first.' }, 
+        { status: 404 }
+      );
+    }
+
     // Validate topK parameter
     const validatedTopK = Math.min(Math.max(Number(topK), 1), 20);
 
@@ -65,12 +93,12 @@ export async function POST(request: Request) {
     // Get the Pinecone index
     const pineconeIndex = pinecone.Index(PINECONE_INDEX_NAME);
     
-    // Initialize the vector store
+    // Initialize the vector store with the bot-specific namespace
     let vectorStore: PineconeStore;
     try {
       vectorStore = await PineconeStore.fromExistingIndex(embeddingsModel, {
         pineconeIndex,
-        namespace: "pdf-embeddings",
+        namespace: bot.pinecone_namespace,
       });
     } catch (initError) {
       console.error('Vector store initialization error:', initError);
@@ -97,7 +125,7 @@ export async function POST(request: Request) {
         errorMessage = searchError.message;
         
         if (searchError.message.includes('namespace')) {
-          errorMessage = `Namespace 'pdf-embeddings' does not exist or is empty`;
+          errorMessage = `Namespace '${bot.pinecone_namespace}' does not exist or is empty`;
           errorStatus = 404;
         } else if (searchError.message.includes('index')) {
           errorMessage = `Pinecone index '${PINECONE_INDEX_NAME}' not found`;
@@ -161,6 +189,7 @@ export async function POST(request: Request) {
       success: true,
       query: query.trim(),
       botId,
+      namespace: bot.pinecone_namespace,
       topK: validatedTopK,
       scoreThreshold: scoreThreshold || 'not applied',
       resultsCount: formattedResults.length,

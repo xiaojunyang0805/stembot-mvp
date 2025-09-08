@@ -209,3 +209,38 @@ curl -X POST http://localhost:3000/api/retrieve-embeddings -H "Content-Type: app
 
 Test with score threshold
 curl -X POST http://localhost:3000/api/retrieve-embeddings -H "Content-Type: application/json" -d "{\"query\": \"ESP32 temperature sensor\", \"botId\": \"01927fdc-0f78-499f-8178-1edea3de426c\", \"topK\": 10, \"scoreThreshold\": 0.6}"
+
+Task3.2: Save and Fetch Metadata in Supabase
+Task3.3: End-to-End testing
+Task3.4: Integrate into Bot creation flow
+
+Test the PDF processing (will be integrated to create-bot flow)
+curl -X POST http://localhost:3000/api/process-pdf \ -H "Content-Type: application/json" \ -d "{\"filePath\": \"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757319433425.pdf\", \"botId\": \"01927fdc-0f78-499f-8178-1edea3de426c\"}"
+
+Test outcome:The bot creation process works fine until the PDF processing step. The curl test shows that your PDF processing API is working correctly. The issue is in the frontend automatic processing. 
+
+With updated api/process-pdf route, api/retrieve-embeddings route, create-bot/page.tsx, we hope to combine all tasks 3.2/3.3/3.4. 
+Resolved end-to-end flow issues after debugging create-bot/page.tsx, supabase-storage.ts, and /api/process-pdf/route.ts. Automatic PDF processing now triggers upload, parsing, storing, and embedding. Verified with botId 8e6e32d7-30c6-45ed-833c-f33314dcf909 and storage path dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757332035825.pdf."
+The test is successful.
+Output: 
+Getting basic PDF info...
+page.tsx:164 PDF basic info: {pageCount: 1, firstPageText: 'PDF content will be processed for AI embeddings in WP3', metadata: {…}}
+page.tsx:173 Uploading to Supabase Storage...
+page.tsx:176 Upload result: {success: true, data: {…}, publicUrl: 'https://lbezfsimdogrudqvkczx.supabase.co/storage/v…85-0972e1c9f4f6/Stem_project_01_1757332035825.pdf'}
+page.tsx:187 Extracted storage path: dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757332035825.pdf
+page.tsx:190 Saving to database...
+page.tsx:200 Save result: {success: true, data: {…}}
+page.tsx:238 Bot created successfully! Attempting to process PDF...
+page.tsx:239 Bot ID: 8e6e32d7-30c6-45ed-833c-f33314dcf909 File path: dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757332035825.pdf
+page.tsx:243 Starting automatic PDF processing...
+page.tsx:107 Calling process-pdf API with: {botId: '8e6e32d7-30c6-45ed-833c-f33314dcf909', filePath: 'dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757332035825.pdf'}
+turbopack-hot-reloader-common.ts:43 [Fast Refresh] rebuilding
+report-hmr-latency.ts:26 [Fast Refresh] done in 2078ms
+page.tsx:121 Process-pdf API response: {message: 'PDF processed and embeddings stored', details: {…}}
+turbopack-hot-reloader-common.ts:43 [Fast Refresh] rebuilding
+report-hmr-latency.ts:26 [Fast Refresh] done in 321ms
+
+Supabase bot table:
+{"idx":0,"id":"ea490dea-47df-42d2-97a7-3625087436a9","name":"Stem_project_01","file_name":"IOT Based Environment Monitoring System Using ESP32.pdf","file_url":"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757334941152.pdf","user_id":"dd906b46-0f8e-4413-9e85-0972e1c9f4f6","created_at":"2025-09-08 12:35:42.400663+00","updated_at":"2025-09-08 12:35:42.400663+00","page_count":1,"file_size":null,"parsed_at":"2025-09-08 12:35:41.648+00","first_page_text":"PDF content will be processed for AI embeddings in WP3","pinecone_namespace":"bot-1757334941647","metadata":"{\"uploadDate\": \"2025-09-08T12:35:41.648Z\", \"originalFileName\": \"IOT Based Environment Monitoring System Using ESP32.pdf\"}"}
+
+curl -X POST http://localhost:3000/api/process-pdf -H "Content-Type: application/json" -d "{\"filePath\": \"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757334941152.pdf\", \"botId\": \"ea490dea-47df-42d2-97a7-3625087436a9\"}"

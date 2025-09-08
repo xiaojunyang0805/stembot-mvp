@@ -8,6 +8,19 @@ import { User } from '@supabase/supabase-js';
 import { uploadPDFToStorage, saveBotToDatabase } from '@/lib/supabase-storage';
 import { validatePDF, getPDFInfo } from '@/lib/pdf-utils';
 
+// Define the expected return types for the storage and database functions
+interface UploadResult {
+  success: boolean;
+  error?: string;
+  data?: { path: string };
+  publicUrl?: string;
+}
+
+interface SaveResult {
+  success: boolean;
+  error?: string;
+  data?: { id: string };
+}
 
 export default function CreateBotPage() {
   const [botName, setBotName] = useState('');
@@ -17,6 +30,10 @@ export default function CreateBotPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [createdBotId, setCreatedBotId] = useState<string | null>(null);
+  const [createdFilePath, setCreatedFilePath] = useState<string | null>(null);
+  const [showProcessButton, setShowProcessButton] = useState(false);
   const router = useRouter();
   const supabaseClient = createSupabaseBrowserClient();
 
@@ -84,111 +101,148 @@ export default function CreateBotPage() {
     return isValid;
   };
 
-// Update the handleSubmit function to use simple validation:
-const handleSubmit = async (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+    setFile(selectedFile);
+    setErrors({ ...errors, file: undefined });
+    setShowProcessButton(false); // Reset button on new file
+  };
+
+  const processPDF = async (botId: string, filePath: string) => {
+    try {
+      setProcessingStatus('Processing PDF and generating embeddings...');
+      console.log('Calling process-pdf API with:', { botId, filePath });
+      
+      const response = await fetch('/api/process-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filePath, botId }),
+      });
+
+      const result = await response.json();
+      console.log('Process-pdf API response:', result);
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to process PDF');
+      }
+
+      setProcessingStatus('PDF processed successfully!');
+      return result;
+    } catch (error) {
+      console.error('PDF processing error:', error);
+      setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Failed to process PDF'));
+      throw error;
+    }
+  };
+
+  const handleManualProcess = async () => {
+    if (!createdBotId || !createdFilePath) {
+      setProcessingStatus('Error: No bot or file available for processing');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      setProcessingStatus('Processing PDF and generating embeddings...');
+      console.log('Calling process-pdf API with:', { botId: createdBotId, filePath: createdFilePath });
+      await processPDF(createdBotId, createdFilePath);
+      setShowProcessButton(false);
+      setIsSuccess(true);
+    } catch (error) {
+      console.error('Manual process error:', error);
+      setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Failed to process manually'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  if (!validateForm()) return;
-  if (!file || !user) return;
+  if (!validateForm() || !file || !user) {
+    return;
+  }
 
   setIsSubmitting(true);
   setErrors({});
+  setProcessingStatus('');
+
+  let uploadResult: UploadResult;
+  let saveResult: SaveResult = { success: false };
+  let filePathFromUpload: string = '';
 
   try {
-    // Validate PDF file with simple validation
+    console.log('Starting bot creation...');
+
+    const pdfInfo = await getPDFInfo(file);
     const validation = await validatePDF(file);
     if (!validation.isValid) {
       throw new Error(validation.error);
     }
 
-    // Get basic PDF info (without heavy parsing)
-    console.log('Getting basic PDF info...');
-    const pdfInfo = await getPDFInfo(file);
     console.log('PDF basic info:', pdfInfo);
 
-    // Upload to Supabase Storage
     console.log('Uploading to Supabase Storage...');
-    const uploadResult = await uploadPDFToStorage(file, user, botName);
+    uploadResult = await uploadPDFToStorage(file, user, botName);
     if (!uploadResult.success) {
-      throw new Error(uploadResult.error);
+      throw new Error(uploadResult.error || 'Upload failed');
     }
+    console.log('Upload result:', uploadResult);
+    filePathFromUpload = uploadResult.publicUrl?.split('/bots/')[1] || '';
+    if (!filePathFromUpload) {
+      throw new Error('Upload result has no valid public URL');
+    }
+    console.log('Extracted filePathFromUpload:', filePathFromUpload);
+    setCreatedFilePath(filePathFromUpload);
 
-    // Save to database
     console.log('Saving to database...');
-    const saveResult = await saveBotToDatabase(
+    saveResult = await saveBotToDatabase(
       botName,
-      uploadResult.data?.path || '',
-      uploadResult.publicUrl || '',
+      file.name,
+      filePathFromUpload,
       user.id,
-      pdfInfo
+      pdfInfo,
+      '' // Empty botId, will be updated with data.id
     );
-
     if (!saveResult.success) {
-      throw new Error(saveResult.error);
+      throw new Error(saveResult.error || 'Save failed');
     }
+    console.log('Save result:', saveResult);
 
-    console.log('Bot created successfully!');
+    const botId = saveResult.data?.id;
+    if (!botId) {
+      throw new Error('Failed to get botId from save result');
+    }
+    setCreatedBotId(botId);
+    console.log('Bot ID created:', botId);
+
+    console.log('About to call processPDF with botId:', botId, 'filePath:', filePathFromUpload);
+    setProcessingStatus('Processing PDF and generating embeddings...');
+    await processPDF(botId, filePathFromUpload);
+
+    console.log('processPDF completed successfully');
+
     setIsSuccess(true);
-    
-    // Reset form
-    setBotName('');
-    setFile(null);
-    
-    // Redirect after 2 seconds
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 2000);
-
-  } catch (error: unknown) {
-    console.error('Error creating bot:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create bot. Please try again.';
-    setErrors({ 
-      file: errorMessage
-    });
-    setIsSuccess(false);
+    setShowProcessButton(false);
+    setTimeout(() => router.push('/dashboard'), 2000);
+  } catch (error) {
+    console.error('Submission error:', error);
+    setErrors({ file: error instanceof Error ? error.message : 'Unknown error' });
+    setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    if (saveResult.success && createdBotId) {
+      setShowProcessButton(true);
+    }
   } finally {
     setIsSubmitting(false);
   }
- };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0] || null;
-    setFile(selectedFile);
-
-    if (selectedFile && errors.file) {
-      setErrors({ ...errors, file: undefined });
-    }
   };
 
-  // Show loading state while checking authentication
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="mt-4 text-xl font-bold text-gray-900">Bot Created Successfully!</h2>
-          <p className="mt-2 text-gray-600">Your bot has been created and is ready to use.</p>
-          <p className="mt-1 text-sm text-gray-500">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
@@ -240,6 +294,13 @@ const handleSubmit = async (e: React.FormEvent) => {
               </p>
             )}
           </div>
+          
+          {processingStatus && (
+            <div className="p-3 bg-blue-50 rounded-md">
+              <p className="text-sm text-blue-700">{processingStatus}</p>
+            </div>
+          )}
+          
           <button
             type="submit"
             disabled={isSubmitting}
@@ -260,12 +321,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                     r="10"
                     stroke="currentColor"
                     strokeWidth="4"
-                  ></circle>
+                  />
                   <path
                     className="opacity-75"
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
+                  />
                 </svg>
                 Creating...
               </span>
@@ -273,6 +334,17 @@ const handleSubmit = async (e: React.FormEvent) => {
               'Create Bot'
             )}
           </button>
+
+          {showProcessButton && (
+            <button
+              type="button"
+              onClick={handleManualProcess}
+              disabled={isSubmitting}
+              className="w-full py-2 px-4 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Processing...' : 'Process PDF Manually'}
+            </button>
+          )}
         </form>
         <div className="mt-4 text-center">
           <Link href="/dashboard" className="text-blue-600 hover:underline">
