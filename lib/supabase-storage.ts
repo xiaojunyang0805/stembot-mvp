@@ -80,14 +80,15 @@ export const saveBotToDatabase = async (
     pageCount: number;
     firstPageText: string;
     metadata?: PDFMetadata;
-    fileSize?: number;
-  },
-  botId: string // Initial botId (can be empty)
+    fileSize: number; // Changed to required
+  }
 ): Promise<SaveResult> => {
   try {
     const supabaseClient = createSupabaseBrowserClient();
     
-    // Perform initial insert without setting id explicitly
+    // Create a temporary namespace first (will be updated later)
+    const tempNamespace = `temp-${Date.now()}`;
+    
     const { data, error } = await supabaseClient
       .from('bots')
       .insert({
@@ -96,11 +97,10 @@ export const saveBotToDatabase = async (
         file_url: fileUrl,
         user_id: userId,
         page_count: pdfInfo.pageCount,
-        file_size: pdfInfo.fileSize || null,
+        file_size: pdfInfo.fileSize, // Direct assignment, no fallback
         first_page_text: pdfInfo.firstPageText.substring(0, 500),
         parsed_at: new Date().toISOString(),
-        // Use botId if provided, otherwise rely on returned data.id
-        pinecone_namespace: botId ? `bot-${botId}` : undefined,
+        pinecone_namespace: tempNamespace,
         metadata: {
           originalFileName: pdfInfo.metadata?.fileName || '',
           uploadDate: new Date().toISOString(),
@@ -119,15 +119,24 @@ export const saveBotToDatabase = async (
       return { success: false, error: error.message };
     }
 
-    // Update with correct botId-based namespace if not provided initially
-    if (!botId && data.id) {
+    // Update with the correct namespace using the returned ID
+    if (data.id) {
+      const correctNamespace = `bot-${data.id}`;
       const { error: updateError } = await supabaseClient
         .from('bots')
-        .update({ pinecone_namespace: `bot-${data.id}` })
+        .update({ pinecone_namespace: correctNamespace })
         .eq('id', data.id);
+      
       if (updateError) {
-        console.warn('Failed to update pinecone_namespace:', updateError);
+        console.error('Failed to update pinecone_namespace:', updateError);
+        // Don't fail the entire operation for this
       }
+      
+      // Return data with the correct namespace
+      return { 
+        success: true, 
+        data: { ...data, pinecone_namespace: correctNamespace } 
+      };
     }
 
     return { success: true, data };

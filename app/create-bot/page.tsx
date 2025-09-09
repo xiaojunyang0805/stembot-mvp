@@ -104,7 +104,7 @@ export default function CreateBotPage() {
     const selectedFile = e.target.files?.[0] || null;
     setFile(selectedFile);
     setErrors({ ...errors, file: undefined });
-    setShowProcessButton(false); // Reset button on new file
+    setShowProcessButton(false);
   };
 
   const processPDF = async (botId: string, filePath: string) => {
@@ -156,6 +156,16 @@ export default function CreateBotPage() {
     }
   };
 
+  const extractStoragePath = (fullPath: string): string => {
+    // Extract just the storage path from a full URL if needed
+    const parts = fullPath.split('/');
+    const storageIndex = parts.indexOf('bots') + 1;
+    if (storageIndex > 0 && storageIndex < parts.length) {
+      return parts.slice(storageIndex).join('/');
+    }
+    return fullPath;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -167,79 +177,111 @@ export default function CreateBotPage() {
     setErrors({});
     setProcessingStatus('');
 
-    let uploadResult: UploadResult;
-    let saveResult: SaveResult = { success: false };
-    let filePathFromUpload: string = '';
-
     try {
       console.log('Starting bot creation...');
-
-      const pdfInfo = await getPDFInfo(file);
       const validation = await validatePDF(file);
       if (!validation.isValid) {
         throw new Error(validation.error);
       }
 
+      // Get basic PDF info
+      console.log('Getting basic PDF info...');
+      const pdfInfo = await getPDFInfo(file);
       console.log('PDF basic info:', pdfInfo);
+    
+      // Create a new object with fileSize
+      const pdfInfoWithSize = {
+        ...pdfInfo,
+        fileSize: file.size
+      };
 
+      // Upload to Supabase Storage
       console.log('Uploading to Supabase Storage...');
-      uploadResult = await uploadPDFToStorage(file, user, botName);
+      setProcessingStatus('Uploading PDF to storage...');
+      const uploadResult = await uploadPDFToStorage(file, user, botName) as UploadResult;
       if (!uploadResult.success) {
         throw new Error(uploadResult.error || 'Upload failed');
       }
       console.log('Upload result:', uploadResult);
-      filePathFromUpload = uploadResult.publicUrl?.split('/bots/')[1] || '';
-      if (!filePathFromUpload) {
-        throw new Error('Upload result has no valid public URL');
-      }
-      console.log('Extracted filePathFromUpload:', filePathFromUpload);
-      setCreatedFilePath(filePathFromUpload);
 
+      // Extract the storage path
+      const storagePath = uploadResult.data?.path 
+        ? extractStoragePath(uploadResult.data.path) 
+        : '';
+      
+      console.log('Extracted storage path:', storagePath);
+      setCreatedFilePath(storagePath);
+
+      // Save to database
       console.log('Saving to database...');
-      saveResult = await saveBotToDatabase(
+      setProcessingStatus('Saving bot metadata...');
+      const saveResult = await saveBotToDatabase(
         botName,
-        file.name,
-        filePathFromUpload,
+        storagePath,
+        uploadResult.publicUrl || '',
         user.id,
-        pdfInfo,
-        '' // Empty botId, will be updated with data.id
-      );
+        pdfInfoWithSize
+      ) as SaveResult;
+
+      console.log('Save result:', saveResult);
+
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Save failed');
       }
-      console.log('Save result:', saveResult);
 
-      const botId = saveResult.data?.id;
-      if (!botId) {
-        throw new Error('Failed to get botId from save result');
+      // Store the created bot ID for potential manual processing
+      if (saveResult.data?.id) {
+        setCreatedBotId(saveResult.data.id);
       }
-      setCreatedBotId(botId);
-      console.log('Bot ID created:', botId);
 
-      console.log('About to call processPDF with botId:', botId, 'filePath:', filePathFromUpload);
-      setProcessingStatus('Processing PDF and generating embeddings...');
-      await processPDF(botId, filePathFromUpload);
-
-      console.log('processPDF completed successfully');
-
-      setShowProcessButton(false);
-      setTimeout(() => router.push('/dashboard'), 2000);
-    } catch (error) {
-      console.error('Submission error:', error);
-      setErrors({ file: error instanceof Error ? error.message : 'Unknown error' });
-      setProcessingStatus('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      if (saveResult.success && createdBotId) {
+      console.log('Bot created successfully! Attempting to process PDF...');
+      
+      // Try to process PDF automatically
+      if (saveResult.data?.id && storagePath) {
+        console.log('Starting automatic PDF processing...');
+        setProcessingStatus('Starting PDF processing...');
+        
+        try {
+          await processPDF(saveResult.data.id, storagePath);
+          setShowProcessButton(false);
+          
+          // Redirect after 2 seconds
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 2000);
+        } catch (processError) {
+          console.error('Automatic PDF processing failed:', processError);
+          setShowProcessButton(true);
+          setProcessingStatus('PDF upload successful but processing failed. You can try processing manually.');
+        }
+      } else {
         setShowProcessButton(true);
+        setProcessingStatus('PDF uploaded successfully. Please process it manually.');
       }
+
+    } catch (error: unknown) {
+      console.error('Error creating bot:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create bot. Please try again.';
+      setErrors({ 
+        file: errorMessage
+      });
+      setProcessingStatus('Error: ' + errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
