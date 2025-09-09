@@ -261,3 +261,20 @@ After vercel deployment, test at the live endpoint.
 curl -X POST https://stembot-mvp.vercel.app/api/process-pdf -H "Content-Type: application/json" -d "{\"filePath\": \"dd906b46-0f8e-4413-9e85-0972e1c9f4f6/Stem_project_01_1757334941152.pdf\", \"botId\": \"ea490dea-47df-42d2-97a7-3625087436a9\"}"
 Outcome: Deployed to Vercel at https://stembot-mvp.vercel.app with successful live endpoint test on 2025-09-08, processing 17 chunks for botId ea490dea-47df-42d2-97a7-3625087436a9.
 
+September 9, 2025
+WP4: Advanced AI Features & Tutoring Integration
+WP4_Task1: Set up tutoring framework and dependencies. Principle: Establish a foundation for AI-driven tutoring by integrating HuggingFace models, LangChain, and Pinecone for memory and context management within the Next.js project.
+
+Add "PINECONE_ENVIRONMENT=us-east-1". "import { HuggingFaceInference } from "@langchain/community/llms/hf";" 
+
+Add ./lib/tutoringChain.ts; ./app/api/tutoring/route.ts.
+
+Test the tutoring API with a sample math query:
+curl -v POST http://localhost:3000/api/tutoring -H "Content-Type: application/json" -d "{\"input\": \"Solve 2x + 3 = 7\", \"userId\": \"test-user-123\"}"
+
+curl -X POST -H "Content-Type: application/json" -d "{"contents":[{"parts":[{"text":"Write a story about a magic backpack"}]}]}" "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyBw8MQoNEeJCnrB7WA6BM1J9jFKrhr1vCA"
+
+All models via HF cannot be accessed. Thus, I switched to local AI model Ollama. 
+Ollama: Uses a local server (http://localhost:11434) with no authentication needed.
+
+

@@ -10,6 +10,7 @@
     "test:ts": "ts-node --require tsconfig-paths/register --project tsconfig.json"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.7.1",
     "@langchain/community": "^0.3.55",
     "@langchain/core": "^0.3.74",
